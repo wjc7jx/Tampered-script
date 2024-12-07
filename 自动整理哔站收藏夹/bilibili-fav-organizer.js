@@ -405,6 +405,21 @@
                             <span>${CONFIG.minSimilarity * 100}%</span>
                         </label>
                     </div>
+                    <div style="margin: 10px 0;">
+                        <label>
+                            <input type="checkbox" name="usePaging" checked>
+                            分页处理
+                        </label>
+                        <div name="pagingOptions" style="margin-left: 20px;">
+                            <label>每页处理数量：
+                                <select name="pageSize">
+                                    <option value="20">20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
                     <div style="margin-top: 20px;">
                         <button class="start-btn" style="
                             background: #00a1d6;
@@ -435,6 +450,8 @@
                 const targetFavs = Array.from(dialog.querySelectorAll('[name="targetFavs"] input:checked')).map(cb => cb.value);
                 const useAI = dialog.querySelector('[name="useAI"]').checked;
                 const similarity = parseInt(dialog.querySelector('[name="similarity"]').value) / 100;
+                const usePaging = dialog.querySelector('[name="usePaging"]').checked;
+                const pageSize = parseInt(dialog.querySelector('[name="pageSize"]').value);
 
                 if (!sourceFav) {
                     alert('请选择要整理的收藏夹');
@@ -450,7 +467,9 @@
                     sourceFav,
                     targetFavs,
                     useAI,
-                    minSimilarity: similarity
+                    minSimilarity: similarity,
+                    usePaging,
+                    pageSize
                 });
             };
 
@@ -493,13 +512,13 @@
         // 修改 startOrganize 方法
         async startOrganize(config) {
             try {
-                // 显示进度条
                 const progress = this.showProgress();
-
+                const pageSize = config.usePaging ? parseInt(config.pageSize) : 0;
+                
                 // 获取源收藏夹的视频
                 progress.update('正在获取源收藏夹内容...', 0);
-                const items = await this.getAllFavItems(config.sourceFav);
-                console.log('获取到视频数:', items.length);
+                const allItems = await this.getAllFavItems(config.sourceFav);
+                console.log('获取到视频数:', allItems.length);
 
                 // 获取目标收藏夹信息
                 progress.update('正在获取目标收藏夹信息...', 20);
@@ -507,25 +526,56 @@
                     config.targetFavs.map(id => API.getFavItems(id, 1, 1))
                 );
 
-                // 匹配视频
-                progress.update('正在分析视频内容...', 40);
-                const moveActions = await this.matchVideosToFolders(
-                    items,
-                    targetFolders.map(f => f.data.info),
-                    config.sourceFav,
-                    config.useAI
-                );
+                // 分页处理
+                if (pageSize > 0) {
+                    const pages = Math.ceil(allItems.length / pageSize);
+                    for (let i = 0; i < pages; i++) {
+                        // 检查是否停止
+                        if (progress.isStopped()) {
+                            console.log('用户停止处理');
+                            return;
+                        }
 
-                // 执行移动
-                progress.update('正在移动视频...', 60);
-                await this.executeMove(moveActions, config.sourceFav);
+                        // 等待暂停
+                        while (progress.isPaused()) {
+                            await new Promise(r => setTimeout(r, 10));
+                            if (progress.isStopped()) return;
+                        }
 
-                // 完成
+                        const start = i * pageSize;
+                        const end = Math.min(start + pageSize, allItems.length);
+                        const pageItems = allItems.slice(start, end);
+
+                        progress.update(`正在处理第 ${i + 1}/${pages} 页...`, (i / pages) * 100);
+
+                        // 匹配视频
+                        const moveActions = await this.matchVideosToFolders(
+                            pageItems,
+                            targetFolders.map(f => f.data.info),
+                            config.sourceFav,
+                            config.useAI
+                        );
+
+                        // 执行移动
+                        await this.executeMove(moveActions, config.sourceFav);
+
+                        // 显示当前页的结果
+                        this.showMatchResult(moveActions);
+                    }
+                } else {
+                    // 原有的一次性处理逻辑
+                    const moveActions = await this.matchVideosToFolders(
+                        allItems,
+                        targetFolders.map(f => f.data.info),
+                        config.sourceFav,
+                        config.useAI
+                    );
+                    await this.executeMove(moveActions, config.sourceFav);
+                    this.showMatchResult(moveActions);
+                }
+
                 progress.update('整理完成!', 100);
                 setTimeout(() => progress.close(), 1000);
-
-                // 显示结果
-                this.showMatchResult(moveActions);
 
             } catch(err) {
                 console.error('整理失败:', err);
@@ -533,7 +583,7 @@
             }
         }
 
-        // 添加进度显示
+        // 修改 showProgress 方法
         showProgress() {
             const div = document.createElement('div');
             div.style.cssText = `
@@ -555,16 +605,51 @@
             const text = document.createElement('div');
             text.style.marginTop = '10px';
 
+            const controls = document.createElement('div');
+            controls.style.marginTop = '10px';
+            controls.innerHTML = `
+                <button class="pause-btn">暂停</button>
+                <button class="continue-btn" style="display:none">继续</button>
+                <button class="stop-btn">停止</button>
+            `;
+
             div.appendChild(progress);
             div.appendChild(text);
+            div.appendChild(controls);
             document.body.appendChild(div);
+
+            let isPaused = false;
+            let isStopped = false;
+
+            const pauseBtn = controls.querySelector('.pause-btn');
+            const continueBtn = controls.querySelector('.continue-btn');
+            const stopBtn = controls.querySelector('.stop-btn');
+
+            pauseBtn.onclick = () => {
+                isPaused = true;
+                pauseBtn.style.display = 'none';
+                continueBtn.style.display = 'inline';
+            };
+
+            continueBtn.onclick = () => {
+                isPaused = false;
+                pauseBtn.style.display = 'inline';
+                continueBtn.style.display = 'none';
+            };
+
+            stopBtn.onclick = () => {
+                isStopped = true;
+                div.remove();
+            };
 
             return {
                 update: (message, value) => {
                     text.textContent = message;
                     progress.value = value;
                 },
-                close: () => div.remove()
+                close: () => div.remove(),
+                isPaused: () => isPaused,
+                isStopped: () => isStopped
             };
         }
 
@@ -750,7 +835,7 @@
 
                 console.log('所有视频移动完成');
             } catch (err) {
-                console.error('移动视频失败:', err);
+                console.error('移动视��失败:', err);
                 throw new Error('移动视频失败: ' + err.message);
             }
         }
@@ -822,7 +907,7 @@
         async getAISimilarity(video, folder) {
             try {
                 const prompt = `
-请分析以下视频是否适合放入这个收藏夹。请只回复一个0到1之间的数字，表示匹配度。
+请分析以下视频是否适合放入这个收藏夹。请只回复一个0到1之间的数字，表示���配度。
 
 视频信息：
 标题：${video.title || '无'}
@@ -1095,7 +1180,7 @@
                 const progress = this.showProgress();
                 progress.update('正在获取收藏夹内容...', 0);
 
-                // 获取所有视频内容
+                // 取所有视频内容
                 const items = await this.getAllFavItems(mediaId);
 
                 progress.update('正在进行AI分析...', 30);
@@ -1112,7 +1197,7 @@
 请按照以下格式返回JSON数据（不要包含任何其他格式或标记）：
 {
     "folder1名称": "folder1简介",
-    "folder2名称": "folder2简���",
+    "folder2名称": "folder2简介",
     ...
 }
 视频列表：${JSON.stringify(videosInfo)}`;
