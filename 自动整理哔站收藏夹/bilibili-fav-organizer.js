@@ -338,16 +338,32 @@
                     border-radius: 8px;
                     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
                     z-index: 10000;
+                    min-width: 400px;
                 ">
                     <h3>收藏夹整理配置</h3>
+                    <div style="margin: 10px 0;">
+                        <label>选择要整理的收藏夹：</label>
+                        <select name="sourceFav" style="width: 100%; margin: 5px 0; padding: 5px;">
+                            <option value="">加载中...</option>
+                        </select>
+                    </div>
+                    <div style="margin: 10px 0;">
+                        <label>选择目标收藏夹（可多选）：</label>
+                        <div name="targetFavs" style="
+                            max-height: 200px;
+                            overflow-y: auto;
+                            border: 1px solid #ddd;
+                            padding: 10px;
+                            margin: 5px 0;
+                        ">
+                            加载中...
+                        </div>
+                    </div>
                     <div style="margin: 10px 0;">
                         <label>
                             <input type="checkbox" name="useAI" checked>
                             使用 AI 智能匹配
                         </label>
-                        <p style="color: #666; font-size: 12px;">
-                            AI 匹配更准确但速度较慢，取消勾选将使用传统匹配方式
-                        </p>
                     </div>
                     <div style="margin: 10px 0;">
                         <label>
@@ -376,45 +392,105 @@
                 </div>
             `;
 
+            // 加载收藏夹列表
+            this.loadFavList(dialog);
+
             const startBtn = dialog.querySelector('.start-btn');
             const cancelBtn = dialog.querySelector('.cancel-btn');
-            const useAICheckbox = dialog.querySelector('input[name="useAI"]');
-            const similarityInput = dialog.querySelector('input[name="similarity"]');
-
+            
             startBtn.onclick = () => {
-                const config = {
-                    useAI: useAICheckbox.checked,
-                    minSimilarity: parseInt(similarityInput.value) / 100
-                };
+                const sourceFav = dialog.querySelector('[name="sourceFav"]').value;
+                const targetFavs = Array.from(dialog.querySelectorAll('[name="targetFavs"] input:checked')).map(cb => cb.value);
+                const useAI = dialog.querySelector('[name="useAI"]').checked;
+                const similarity = parseInt(dialog.querySelector('[name="similarity"]').value) / 100;
+
+                if (!sourceFav) {
+                    alert('请选择要整理的收藏夹');
+                    return;
+                }
+                if (targetFavs.length === 0) {
+                    alert('请选择至少一个目标收藏夹');
+                    return;
+                }
+
                 dialog.remove();
-                this.startOrganize(config);
+                this.startOrganize({
+                    sourceFav,
+                    targetFavs,
+                    useAI,
+                    minSimilarity: similarity
+                });
             };
 
             cancelBtn.onclick = () => dialog.remove();
-
             document.body.appendChild(dialog);
         }
 
-        async startOrganize(config) {
+        // 添加加载收藏夹列表方法
+        async loadFavList(dialog) {
             try {
-                // 1. 获取所有收藏夹
                 const uid = location.pathname.split('/')[1];
                 const favListRes = await API.getFavList(uid);
-                const allFolders = favListRes.data.list;
-                console.log('获取到的收藏夹列表:', allFolders);
+                const folders = favListRes.data.list;
 
-                // 2. 获取当前收藏夹的视频
-                const currentFolderId = favListRes.data.list[0].id;
-                const items = await this.getAllFavItems();
-                console.log('当前收藏夹视频数:', items.length);
+                // 更新源收藏夹选择
+                const sourceSelect = dialog.querySelector('[name="sourceFav"]');
+                sourceSelect.innerHTML = folders.map(folder => `
+                    <option value="${folder.id}">${folder.title} (${folder.media_count}个内容)</option>
+                `).join('');
 
-                // 3. 为每个视频找到最匹配的收藏夹
-                const moveActions = await this.matchVideosToFolders(items, allFolders, currentFolderId);
+                // 更新目标收藏夹选择
+                const targetDiv = dialog.querySelector('[name="targetFavs"]');
+                targetDiv.innerHTML = folders.map(folder => `
+                    <div style="margin: 5px 0;">
+                        <label>
+                            <input type="checkbox" value="${folder.id}">
+                            ${folder.title} (${folder.media_count}个内容)
+                        </label>
+                    </div>
+                `).join('');
+
+            } catch (err) {
+                console.error('加载收藏夹列表失败:', err);
+                alert('加载收藏夹列表失败: ' + err.message);
+            }
+        }
+
+        // 修改 startOrganize 方法
+        async startOrganize(config) {
+            try {
+                // 显示进度条
+                const progress = this.showProgress();
                 
-                // 4. 执行移动操作
-                await this.executeMove(moveActions, currentFolderId);
+                // 获取源收藏夹的视频
+                progress.update('正在获取源收藏夹内容...', 0);
+                const items = await this.getAllFavItems(config.sourceFav);
+                console.log('获取到视频数:', items.length);
+
+                // 获取目标收藏夹信息
+                progress.update('正在获取目标收藏夹信息...', 20);
+                const targetFolders = await Promise.all(
+                    config.targetFavs.map(id => API.getFavItems(id, 1, 1))
+                );
+
+                // 匹配视频
+                progress.update('正在分析视频内容...', 40);
+                const moveActions = await this.matchVideosToFolders(
+                    items, 
+                    targetFolders.map(f => f.data.info),
+                    config.sourceFav,
+                    config.useAI
+                );
                 
-                // 5. 显示结果
+                // 执行移动
+                progress.update('正在移动视频...', 60);
+                await this.executeMove(moveActions, config.sourceFav);
+                
+                // 完成
+                progress.update('整理完成!', 100);
+                setTimeout(() => progress.close(), 1000);
+                
+                // 显示结果
                 this.showMatchResult(moveActions);
                 
             } catch(err) {
@@ -423,7 +499,42 @@
             }
         }
 
-        async getAllFavItems() {
+        // 添加进度显示
+        showProgress() {
+            const div = document.createElement('div');
+            div.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: white;
+                padding: 15px;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                z-index: 10000;
+            `;
+            
+            const progress = document.createElement('progress');
+            progress.style.width = '200px';
+            progress.max = 100;
+            progress.value = 0;
+            
+            const text = document.createElement('div');
+            text.style.marginTop = '10px';
+            
+            div.appendChild(progress);
+            div.appendChild(text);
+            document.body.appendChild(div);
+            
+            return {
+                update: (message, value) => {
+                    text.textContent = message;
+                    progress.value = value;
+                },
+                close: () => div.remove()
+            };
+        }
+
+        async getAllFavItems(sourceFav) {
             try {
                 // 首先获取用户的 uid
                 const uid = location.pathname.split('/')[1];
@@ -693,7 +804,7 @@
 
 视频信息：
 标题：${video.title || '无'}
-描述：${video.desc || '无'}
+描���：${video.desc || '无'}
 标签：${video.tags?.join(', ') || '无'}
 
 收藏夹信息：
