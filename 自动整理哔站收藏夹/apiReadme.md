@@ -1,6 +1,5 @@
 # 文件夹部分
 
-
 # 收藏夹操作
 
 * [管理收藏夹](https://gitee.com/dhcy/bilibili-API-collect/blob/master/fav/action.md#%E7%AE%A1%E7%90%86%E6%94%B6%E8%97%8F%E5%A4%B9)
@@ -381,87 +380,3 @@ curl 'http://api.bilibili.com/x/v3/fav/resource/clean' \
 ```
 
 ```
-
-</details>
-
-</details>
-
-</details>
-
-</details>
-
-</details>
-
-</details>
-
-</details>
-
-[![Gitee - 基于 Git 的代码托管和研发协作平台](https://gitee.com/static/images/logo-black.svg?t=158106666)](https://gitee.com/)
-
-深圳市奥思网络科技有限公司版权所有
-
-[Git 大全](https://gitee.com/all-about-git)
-
-[Git 命令学习](https://help.gitee.com/learn-Git-Branching/)
-
-[CopyCat 代码克隆检测](https://copycat.gitee.com/)
-
-[APP与插件下载](https://gitee.com/appclient)
-
-[Gitee Reward](https://gitee.com/gitee_reward)
-
-[Gitee 封面人物](https://gitee.com/gitee-stars)
-
-[GVP 项目](https://gitee.com/gvp)
-
-[Gitee 博客](https://blog.gitee.com/)
-
-[Gitee 公益计划](https://gitee.com/enterprises#nonprofit-plan)
-
-[Gitee 持续集成](https://gitee.com/features/gitee-go)
-
-[OpenAPI](https://gitee.com/api/v5/swagger)
-
-[帮助文档](https://help.gitee.com/)
-
-[在线自助服务](https://gitee.com/self_services)
-
-[更新日志](https://gitee.com/help/articles/4378)
-
-[关于我们](https://gitee.com/about_us)
-
-[加入我们](https://www.oschina.net/news/131099/oschina-hiring)
-
-[使用条款](https://gitee.com/terms)
-
-[意见建议](https://gitee.com/oschina/git-osc/issues)
-
-[合作伙伴](https://gitee.com/links.html)
-
-![技术交流QQ群](https://cn-assets.gitee.com/assets/contact_qr-5e2c2a8da453396590e56a545bce4974.jpg)
-
-技术交流QQ群
-
-![微信服务号](https://cn-assets.gitee.com/assets/qrcode-weixin@2x-b74cc97a2ea80123ea53a737f709836d.png)
-
-微信服务号
-
-[ client@oschina.cn](mailto:%20client@oschina.cn)
-
-[ 企业版在线使用：400-606-0201]()
-
-[专业版私有部署：1367025230413352947997]()
-
-![开放原子开源基金会](https://cn-assets.gitee.com/assets/logo-openatom-d083391cc8a54e283529f3fc11cc38ca.svg)[开放原子开源基金会](https://www.openatom.org/)合作代码托管平台
-
-![违法和不良信息举报中心](https://cn-assets.gitee.com/assets/12377@2x-1aa42ed2d2256f82a61ecf57be1ec244.png)[违法和不良信息举报中心](https://12377.cn/)
-
-[粤ICP备12009483号](http://beian.miit.gov.cn/)
-
-[简 体](https://gitee.com/language/zh-CN) / [繁 體](https://gitee.com/language/zh-TW) / [English](https://gitee.com/language/en)
-
-[×]()拖拽到此处完成下载
-
-图片将完成下载
-
-AIX智能下载器
