@@ -23,8 +23,8 @@
     document.body.appendChild(button);
 
     // 设置参数
-    const appid = ''; // 你的appid
-    const apiKey = ''; // 你的apiKey
+    const appid = '';// 你的AppID
+    const apiKey = '';// 你的API Key
     const ts = Math.floor(Date.now() / 1000).toString();
 
     // 生成signa

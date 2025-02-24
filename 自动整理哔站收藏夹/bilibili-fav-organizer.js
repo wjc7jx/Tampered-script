@@ -43,7 +43,7 @@
     // AI API 配置
     const AI_CONFIG = {
         url: 'https://api.siliconflow.cn/v1/chat/completions',
-        token: 'sk-nmhcrymaktgoupxtlfufbomowoohjsnfzrhkpbcejdjutgos',
+        token: '',// AI API密钥，请自行申请
         model: 'Qwen/Qwen2.5-7B-Instruct'
     };
 
